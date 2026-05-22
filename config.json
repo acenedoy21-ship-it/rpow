@@ -1,0 +1,8 @@
+{
+  "main_wallet": "3944bf6fde01a9554bcbeb3dbc55849b8a4431723f99ba2c3e733eaf8deacde6",
+  "token": "oracle",
+  "workers": 2,
+  "auto_send_threshold": 1,
+  "cpu_batch_size": 100000,
+  "worker_start_delay": 0
+}
