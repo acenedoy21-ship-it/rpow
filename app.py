@@ -101,6 +101,7 @@ def balance_base_units_from_me(me):
 
 
 def add_log(message):
+    print(f"[rpow-web] {message}", flush=True)
     with state_lock:
         app_state["log"].append(
             {"ts": int(time.time()), "message": str(message)[:300]}
@@ -431,6 +432,7 @@ class MinerThread(threading.Thread):
             with state_lock:
                 app_state["total_mined"] += 1
             set_worker(self.index, status="minted", mined=self.mined)
+            add_log(f"worker {self.index} minted #{self.mined} at {round(mhs, 3)} MH/s")
 
             threshold = self.cfg["auto_send_threshold"]
             if threshold and self.mined % threshold == 0:
@@ -438,6 +440,7 @@ class MinerThread(threading.Thread):
                 sent = drain_balance(self.api, self.cfg.get("main_wallet", ""))
                 if sent is None:
                     set_worker(self.index, status="send-error", error=self.api.last_error)
+                    add_log(f"worker {self.index} send error: {self.api.last_error}")
                     time.sleep(1)
                     continue
                 self.sent += sent
@@ -445,8 +448,10 @@ class MinerThread(threading.Thread):
                     total_sent = as_decimal(app_state["total_sent"]) + sent
                     app_state["total_sent"] = fmt_amount(total_sent)
                 set_worker(self.index, status="sent", sent=fmt_amount(self.sent))
+                add_log(f"worker {self.index} sent {fmt_amount(sent)}")
 
         set_worker(self.index, status="stopped")
+        add_log(f"worker {self.index} stopped")
 
 
 def start_miner():
@@ -637,8 +642,13 @@ def stop_route():
     return redirect(url_for("index"))
 
 
-if os.getenv("AUTO_START", "1") != "0":
-    start_miner()
+@app.before_request
+def autostart_on_first_request():
+    if os.getenv("AUTO_START", "1") == "0":
+        return
+    data = snapshot_state()
+    if not data["running"] and not data["stopping"] and not data["last_error"]:
+        start_miner()
 
 
 if __name__ == "__main__":
